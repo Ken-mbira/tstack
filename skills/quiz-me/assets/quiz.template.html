@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__</title>
+<style>
+  :root { --bg:#f3f1ec; --card:#fff; --ink:#10100f; --muted:#6b6a64; --line:#e4e1d9; --green:#0f6b3a; --greenSoft:#e3f1e8; --red:#b42d1c; --redSoft:#f8e4e0; --night:#17181c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+  main { max-width:640px; margin:0 auto; padding:28px 18px 60px; }
+  .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; font-size:13px; color:var(--muted); font-weight:600; }
+  .mark { display:inline-flex; align-items:center; gap:8px; color:var(--ink); font-weight:800; font-size:15px; }
+  .mark i { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:7px; background:var(--ink); color:#fff; font-style:normal; font-size:13px; }
+  .bar { height:4px; background:var(--line); border-radius:4px; overflow:hidden; margin-bottom:22px; }
+  .bar b { display:block; height:100%; background:var(--ink); transition:width .25s; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px; }
+  .kind { font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+  h1 { font-size:28px; letter-spacing:-.5px; margin:0 0 8px; }
+  h2 { font-size:19px; line-height:1.4; letter-spacing:-.2px; margin:0 0 18px; font-weight:700; }
+  p { line-height:1.55; }
+  .opts { display:flex; flex-direction:column; gap:10px; }
+  .opt { display:flex; gap:12px; align-items:flex-start; text-align:left; width:100%; font:inherit; font-size:15px; line-height:1.45; color:var(--ink); background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:13px 14px; cursor:pointer; }
+  .opt:hover:not(:disabled) { border-color:#bdb9ae; }
+  .opt .dot { flex:none; width:20px; height:20px; margin-top:1px; border:2px solid #bdb9ae; border-radius:50%; }
+  .multi .opt .dot { border-radius:6px; }
+  .opt.sel { border-color:var(--ink); }
+  .opt.sel .dot { border-color:var(--ink); background:radial-gradient(var(--ink) 45%, transparent 50%); }
+  .multi .opt.sel .dot { background:var(--ink); box-shadow:inset 0 0 0 3px #fff; }
+  .opt.right { border-color:var(--green); background:var(--greenSoft); }
+  .opt.wrong { border-color:var(--red); background:var(--redSoft); }
+  .opt:disabled { cursor:default; }
+  textarea { width:100%; min-height:180px; font:inherit; font-size:15px; line-height:1.5; padding:13px 14px; border:1.5px solid var(--line); border-radius:14px; resize:vertical; color:var(--ink); }
+  textarea:focus { outline:none; border-color:var(--ink); }
+  .why { margin-top:16px; padding:14px 16px; border-radius:14px; font-size:14.5px; line-height:1.5; }
+  .why.ok { background:var(--greenSoft); color:#0b4f2b; }
+  .why.no { background:var(--redSoft); color:#7d1f13; }
+  .why b { display:block; margin-bottom:4px; }
+  .row { display:flex; gap:10px; margin-top:18px; }
+  .btn { flex:1; font:inherit; font-weight:700; font-size:15.5px; padding:14px 0; border-radius:14px; border:1.5px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; }
+  .btn.ghost { background:transparent; color:var(--ink); border-color:var(--line); }
+  .btn:disabled { opacity:.35; cursor:default; }
+  .score { font-size:46px; font-weight:800; letter-spacing:-1.5px; margin:4px 0 2px; }
+  .muted { color:var(--muted); font-size:14px; }
+  .list { margin:14px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .list li { font-size:14px; line-height:1.45; padding:10px 12px; border-radius:12px; background:#f6f5f1; }
+  .list li span { font-weight:700; margin-right:6px; }
+  .tag { display:inline-block; font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:99px; margin-left:6px; vertical-align:2px; }
+  .tag.ok { background:var(--greenSoft); color:var(--green); }
+  .tag.no { background:var(--redSoft); color:var(--red); }
+  .tag.open { background:#ebe9e3; color:var(--muted); }
+  .out { min-height:220px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; margin-top:12px; }
+  .copied { font-size:13px; color:var(--green); font-weight:700; margin-top:8px; min-height:18px; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+/*__QUESTIONS__*/
+
+const KEY = '__KEY__'
+let state = load() || { i: -1, answers: {} }
+
+function load() { try { return JSON.parse(localStorage.getItem(KEY)) } catch { return null } }
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)) } catch {}
+  // Every change is saved on the server too, so the agent can read it without a paste.
+  try { fetch('answers', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ state, transcript: transcript() }), keepalive: true }).catch(() => {}) } catch {}
+}
+
+/*__ORDER__*/
+
+const el = (html) => { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild }
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]))
+const isRight = (q, picked) => {
+  const want = [...q.correct].sort().join(',')
+  return [...picked].sort().join(',') === want
+}
+const choiceQs = () => QUESTIONS.filter((q) => q.type !== 'open')
+
+function header() {
+  const n = QUESTIONS.length
+  const done = Math.max(0, Math.min(state.i, n))
+  return `<div class="top"><span class="mark"><i>__INITIAL__</i>__TITLE__</span><span>${state.i >= 0 && state.i < n ? `${state.i + 1} / ${n}` : ''}</span></div>
+  <div class="bar"><b style="width:${(done / n) * 100}%"></b></div>`
+}
+
+function render() {
+  const app = document.getElementById('app')
+  const n = QUESTIONS.length
+  if (state.i < 0) {
+    const c = choiceQs().length
+    app.innerHTML = header() + `<div class="card">
+      <h1>__TITLE__</h1>
+      <p class="muted">${n} questions: ${c} with answers to pick, ${n - c} to write out. Picked answers are marked as you go. Everything is saved for your agent to mark.</p>
+      <div class="row"><button class="btn" id="go">Start</button></div></div>`
+    app.querySelector('#go').onclick = () => { state.i = 0; save(); render() }
+    return
+  }
+  if (state.i >= n) return renderEnd(app)
+
+  const q = QUESTIONS[state.i]
+  const a = state.answers[q.id] || {}
+  const multi = q.type === 'multi'
+
+  if (q.type === 'open') {
+    app.innerHTML = header() + `<div class="card">
+      <div class="kind">Write it out</div>
+      <h2>${esc(q.text)}</h2>
+      <textarea id="t" placeholder="Your answer">${esc(a.text || '')}</textarea>
+      <div class="row">${state.i > 0 ? '<button class="btn ghost" id="back">Back</button>' : ''}<button class="btn" id="next">${state.i === n - 1 ? 'Finish' : 'Next'}</button></div></div>`
+    const t = app.querySelector('#t')
+    const next = app.querySelector('#next')
+    const sync = () => { next.disabled = t.value.trim().length < 3 }
+    t.oninput = () => { state.answers[q.id] = { text: t.value }; save(); sync() }
+    sync()
+    next.onclick = () => { state.i++; save(); render(); window.scrollTo(0, 0) }
+    const back = app.querySelector('#back'); if (back) back.onclick = () => { state.i--; save(); render() }
+    return
+  }
+
+  const picked = new Set(a.picked || [])
+  const checked = !!a.checked
+  const idx = order(q)
+  const opts = idx.map((k) => {
+    let cls = 'opt'
+    if (picked.has(k)) cls += ' sel'
+    if (checked && q.correct.includes(k)) cls += ' right'
+    else if (checked && picked.has(k)) cls += ' wrong'
+    return `<button class="${cls}" data-k="${k}" ${checked ? 'disabled' : ''}><span class="dot"></span><span>${esc(q.options[k])}</span></button>`
+  }).join('')
+  const ok = checked && isRight(q, picked)
+  app.innerHTML = header() + `<div class="card ${multi ? 'multi' : ''}">
+    <div class="kind">${multi ? 'Pick all that are true' : 'Pick one'}</div>
+    <h2>${esc(q.text)}</h2>
+    <div class="opts">${opts}</div>
+    ${checked ? `<div class="why ${ok ? 'ok' : 'no'}"><b>${ok ? 'Right' : 'Not quite'}</b>${esc(q.why)}</div>` : ''}
+    <div class="row">${checked
+      ? `<button class="btn" id="next">${state.i === n - 1 ? 'Finish' : 'Next'}</button>`
+      : `<button class="btn" id="check" ${picked.size ? '' : 'disabled'}>Check</button>`}</div></div>`
+
+  app.querySelectorAll('.opt').forEach((b) => {
+    b.onclick = () => {
+      const k = Number(b.dataset.k)
+      if (multi) picked.has(k) ? picked.delete(k) : picked.add(k)
+      else { picked.clear(); picked.add(k) }
+      state.answers[q.id] = { picked: [...picked] }; save(); render()
+    }
+  })
+  const check = app.querySelector('#check')
+  if (check) check.onclick = () => { state.answers[q.id] = { picked: [...picked], checked: true }; save(); render() }
+  const next = app.querySelector('#next')
+  if (next) next.onclick = () => { state.i++; save(); render(); window.scrollTo(0, 0) }
+}
+
+function transcript() {
+  const lines = [__TITLE_JSON__ + ' — my answers', '']
+  QUESTIONS.forEach((q, n) => {
+    const a = state.answers[q.id] || {}
+    if (q.type === 'open') {
+      lines.push(`Q${n + 1} [written] ${q.text}`, (a.text || '(blank)').trim(), '')
+    } else {
+      const picked = (a.picked || []).map((k) => q.options[k])
+      lines.push(`Q${n + 1} [${isRight(q, new Set(a.picked || [])) ? 'right' : 'wrong'}] ${q.text}`, `  picked: ${picked.join(' | ') || '(none)'}`, '')
+    }
+  })
+  return lines.join('\n')
+}
+
+function renderEnd(app) {
+  const cq = choiceQs()
+  const right = cq.filter((q) => isRight(q, new Set((state.answers[q.id] || {}).picked || []))).length
+  const items = QUESTIONS.map((q, n) => {
+    const a = state.answers[q.id] || {}
+    const tag = q.type === 'open' ? '<span class="tag open">To be marked</span>'
+      : isRight(q, new Set(a.picked || [])) ? '<span class="tag ok">Right</span>' : '<span class="tag no">Missed</span>'
+    return `<li><span>${n + 1}.</span>${esc(q.text)}${tag}</li>`
+  }).join('')
+  app.innerHTML = header() + `<div class="card">
+    <div class="kind">Picked answers</div>
+    <div class="score">${right} / ${cq.length}</div>
+    <p class="muted">Your answers are saved. Tell your agent you're done and it will mark the written ones.</p>
+    <div class="row"><button class="btn" id="copy">Copy my answers</button><button class="btn ghost" id="again">Start over</button></div>
+    <div class="copied" id="copied"></div>
+    <textarea class="out" id="out" readonly>${esc(transcript())}</textarea>
+    <ul class="list">${items}</ul></div>`
+  const out = app.querySelector('#out')
+  app.querySelector('#copy').onclick = async () => {
+    const done = () => { app.querySelector('#copied').textContent = 'Copied.' }
+    try { await navigator.clipboard.writeText(out.value); done() }
+    catch { out.focus(); out.select(); try { document.execCommand('copy'); done() } catch { app.querySelector('#copied').textContent = 'Select the text below and copy it.' } }
+  }
+  const again = app.querySelector('#again')
+  again.onclick = () => {
+    if (again.dataset.armed) { state = { i: -1, answers: {} }; save(); render(); return }
+    again.dataset.armed = '1'; again.textContent = 'Tap again to clear'
+  }
+}
+
+render()
+</script>
+</body>
+</html>

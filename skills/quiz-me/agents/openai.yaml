@@ -1,0 +1,4 @@
+interface:
+  display_name: "Quiz Me"
+  short_description: "Build, check, and mark a hard quiz on a feature"
+  default_prompt: "Use $quiz-me to quiz me on how this feature works."
